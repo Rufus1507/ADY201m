@@ -1,4 +1,4 @@
-######### ngày 09/01/2026 #########
+######### ngày 13/01/2026 #########
 cách nào để lấy dữ liệu thông tin đường kẹt xe để có thể lấy dữ liệu giao thông thông minh dự đoán tắc đường có thể lấy ở đâu
 
 Để lấy dữ liệu kẹt xe và xây dựng hệ thống giao thông thông minh (ITS) nhằm dự báo tắc đường, bạn có thể tiếp cận theo 3 hướng chính: sử dụng API thương mại, khai thác dữ liệu mở (Open Data), hoặc tự xây dựng hệ thống thu thập từ hạ tầng (Camera/Cảm biến).
@@ -2444,3 +2444,400 @@ Nếu bạn muốn bước tiếp theo:
 🗺️ Hiển thị bản đồ realtime (NiceGUI / Folium)
 
 👉 Bạn đang chạy script này trên Windows hay Linux (Jetson/Server)?
+
+Dưới đây là **bản sơ thảo Report 1 – Project Planning & Architecture** được viết theo đúng **tinh thần RBL + chuẩn kỹ thuật của ADY201m**, bạn có thể dùng làm **template tham khảo** và chỉnh sửa lại cho phù hợp nhóm của bạn.
+
+---
+
+# **REPORT 1 – PROJECT PROPOSAL & SYSTEM ARCHITECTURE**
+
+**Course:** ADY201m – AI, Data Science with Python & SQL
+**Project Title:** *Smart Traffic Analytics – Dự đoán và phân tích điểm kẹt xe đô thị*
+
+**Student ID(s):** …………
+**GitHub Repository:** …………
+**Semester:** …………
+
+---
+
+## **1. Problem Statement (Mô tả bài toán)**
+
+Ùn tắc giao thông là một trong những vấn đề nghiêm trọng tại các đô thị lớn ở Việt Nam, đặc biệt vào các khung giờ cao điểm. Việc dự đoán trước **điểm nóng kẹt xe** có ý nghĩa quan trọng trong:
+
+* Hỗ trợ người dân lựa chọn lộ trình tối ưu
+* Giúp cơ quan quản lý giao thông điều phối hạ tầng
+* Là nền tảng cho hệ thống giao thông thông minh (Smart City)
+
+Tuy nhiên, phần lớn người tham gia giao thông hiện nay chỉ phản ứng **sau khi kẹt xe đã xảy ra**, thay vì có một hệ thống dự báo dựa trên dữ liệu.
+
+➡️ **Vấn đề cốt lõi**:
+
+> *Liệu có thể sử dụng dữ liệu giao thông công khai để dự đoán khả năng xảy ra kẹt xe tại một khu vực và thời điểm cụ thể hay không?*
+
+---
+
+## **2. Research Questions (Câu hỏi nghiên cứu)**
+
+1. Kẹt xe có mối quan hệ như thế nào với **thời gian trong ngày** (giờ cao điểm / thấp điểm)?
+2. Những yếu tố nào ảnh hưởng mạnh nhất đến khả năng xảy ra kẹt xe?
+
+   * Thời gian
+   * Vị trí
+   * Mật độ phương tiện
+   * Ngày trong tuần
+3. Có thể xây dựng mô hình Machine Learning để **dự đoán kẹt xe trong tương lai gần** hay không?
+
+---
+
+## **3. Research Hypotheses (Giả thuyết khoa học)**
+
+### **Hypothesis 1 – Time-based Congestion**
+
+* **H₀ (Null Hypothesis):**
+  Thời gian trong ngày **không ảnh hưởng đáng kể** đến khả năng xảy ra kẹt xe.
+* **H₁ (Alternative Hypothesis):**
+  Các khung giờ cao điểm (7–9h, 16–19h) **làm tăng đáng kể xác suất kẹt xe**.
+
+---
+
+### **Hypothesis 2 – Spatial Effect**
+
+* **H₀:**
+  Vị trí địa lý **không ảnh hưởng** đến mức độ kẹt xe.
+* **H₁:**
+  Một số khu vực (ngã tư lớn, trung tâm thành phố) **có xác suất kẹt xe cao hơn rõ rệt**.
+
+---
+
+### **Hypothesis 3 – Predictability**
+
+* **H₀:**
+  Không thể dự đoán kẹt xe tốt hơn ngẫu nhiên (random guess).
+* **H₁:**
+  Mô hình Machine Learning có thể dự đoán kẹt xe với độ chính xác **cao hơn baseline**.
+
+---
+
+## **4. Data Sources (Nguồn dữ liệu)**
+
+Dữ liệu sẽ được **tự crawl** (tuân thủ quy định môn học):
+
+* Nguồn giao thông công khai:
+
+  * Google Maps Traffic (scraping mức độ giao thông)
+  * Dữ liệu camera / bản đồ giao thông mở (nếu có)
+* Dữ liệu bao gồm:
+
+  * Thời gian (timestamp)
+  * Vị trí (tọa độ / tuyến đường)
+  * Mức độ ùn tắc (low / medium / high)
+  * Ngày trong tuần
+
+📌 **Lưu ý**: Không sử dụng dataset có sẵn, toàn bộ dữ liệu được thu thập qua pipeline.
+
+---
+
+## **5. Methodology (Phương pháp nghiên cứu)**
+
+### **5.1 Data Engineering**
+
+* Crawl dữ liệu giao thông định kỳ bằng Python
+* Lưu dữ liệu thô (JSON/CSV) vào **MinIO Data Lake**
+* Làm sạch & chuẩn hóa dữ liệu
+* Lưu dữ liệu đã xử lý vào Database (PostgreSQL / SQLite)
+
+### **5.2 Exploratory Data Analysis (EDA)**
+
+* Phân tích phân bố:
+
+  * Kẹt xe theo giờ
+  * Kẹt xe theo khu vực
+* Visualization bằng RStudio
+
+### **5.3 Modeling**
+
+* Mô hình 1: Logistic Regression (baseline)
+* Mô hình 2: Random Forest / XGBoost
+* Đánh giá bằng:
+
+  * Accuracy
+  * Precision / Recall
+  * F1-score
+
+---
+
+## **6. Expected Outcomes (Kết quả kỳ vọng)**
+
+* Xác định được **khung giờ và khu vực có nguy cơ kẹt xe cao**
+* Chứng minh hoặc bác bỏ các giả thuyết đã đặt ra
+* Xây dựng pipeline dữ liệu hoàn chỉnh:
+
+  ```
+  Crawl → Data Lake → Database → EDA → ML Model
+  ```
+* Mô hình có khả năng dự đoán kẹt xe với độ chính xác > baseline
+
+---
+
+## **7. System Architecture (Kiến trúc hệ thống)**
+
+### **7.1 Infrastructure (Docker-based)**
+
+Hệ thống được triển khai bằng Docker Compose gồm 3 container:
+
+1. **MinIO Container**
+
+   * Lưu trữ dữ liệu thô (Raw Data Lake)
+2. **Database Container**
+
+   * PostgreSQL / SQLite
+   * Lưu dữ liệu đã xử lý
+3. **App / Workstation Container**
+
+   * Python (Crawl, ETL, ML)
+   * RStudio (EDA & Visualization)
+
+---
+
+### **7.2 Data Flow Diagram**
+
+```
+[Traffic Source]
+       ↓
+[Crawler - Python]
+       ↓
+[MinIO - Raw Zone]
+       ↓
+[ETL / Cleaning]
+       ↓
+[Database - Clean Data]
+       ↓
+[EDA - RStudio]
+       ↓
+[ML Modeling]
+```
+
+---
+
+## **8. GitHub Repository Structure**
+
+Tuân thủ nghiêm ngặt cấu trúc chuẩn của môn học:
+
+```
+StudentID_SmartTraffic/
+├── docker-compose.yml
+├── README.md
+├── AI_Log.md
+├── requirements.txt
+├── src/
+│   ├── ingestion/
+│   ├── processing/
+│   ├── modeling/
+├── notebooks/
+├── reports/
+```
+
+---
+
+## **9. Risks & Limitations (Hạn chế)**
+
+* Dữ liệu crawl có thể không liên tục
+* Giới hạn số request từ nguồn dữ liệu
+* Sai số do dữ liệu giao thông mang tính thời điểm
+
+---
+
+## **10. Conclusion**
+
+Dự án hướng tới việc xây dựng một hệ thống **Smart Traffic Analytics** theo đúng triết lý **Research-Based Learning**, tập trung vào dữ liệu thực, pipeline hoàn chỉnh và kiểm định giả thuyết khoa học thông qua Machine Learning.
+
+---
+
+Nếu bạn muốn, mình có thể:
+
+* ✍️ Viết **bản PDF đúng chuẩn nộp**
+* 🧠 Giúp bạn **chỉnh giả thuyết cho “gắt” hơn để ăn điểm**
+* 🐳 Vẽ **Docker Architecture Diagram**
+* 📂 Soạn sẵn **README.md + AI_Log.md cho Report 1**
+
+Chỉ cần nói tiếp bạn muốn đi theo hướng nào.
+
+Dưới đây là **thiết kế kiến trúc hệ thống (Docker Diagram)** cho đề tài **Smart Traffic – Dự đoán điểm kẹt xe**, đúng chuẩn **Report 1 – Architecture** của ADY201m.
+Bạn có thể **chép nguyên phần này vào Report 1** (kèm hình vẽ nếu cần).
+
+---
+
+## **1. Tổng quan kiến trúc hệ thống**
+
+Hệ thống được thiết kế theo mô hình **Micro-architecture**, triển khai bằng **Docker Compose**, mô phỏng môi trường làm việc thực tế tại doanh nghiệp.
+
+Mục tiêu:
+
+* Tách biệt rõ **Data Lake – Database – Application**
+* Dễ mở rộng, dễ demo, dễ bảo trì
+* Phục vụ pipeline End-to-End từ Crawl → ML
+
+---
+
+## **2. Docker Architecture Diagram (Logical View)**
+
+```
+┌──────────────────────────────┐
+│        Traffic Data Source   │
+│  (Google Maps / Open Data)   │
+└───────────────┬──────────────┘
+                │
+                ▼
+┌──────────────────────────────┐
+│     App Container (Python)   │
+│ ──────────────────────────  │
+│ • crawler.py (Ingestion)    │
+│ • cleaner.py (ETL)          │
+│ • model.py (ML)             │
+│ • RStudio / Jupyter         │
+└───────────────┬──────────────┘
+        │                       │
+        │ RAW DATA              │ CLEAN DATA
+        ▼                       ▼
+┌──────────────────────┐   ┌──────────────────────┐
+│   MinIO Container    │   │   Database Container  │
+│  (Data Lake - S3)    │   │ (Postgres / SQLite)  │
+│ ──────────────────  │   │ ──────────────────   │
+│ • raw/traffic/*.json│   │ • traffic_cleaned    │
+│ • timestamp-based   │   │ • features table     │
+└──────────────────────┘   └──────────────────────┘
+                │
+                ▼
+┌──────────────────────────────┐
+│     Analysis & Modeling      │
+│  (EDA + ML + Validation)     │
+└──────────────────────────────┘
+```
+
+---
+
+## **3. Docker Containers Description**
+
+### **3.1 App / Workstation Container**
+
+**Chức năng chính:**
+
+* Crawl dữ liệu giao thông (Python)
+* ETL: đọc từ MinIO → làm sạch → ghi vào DB
+* EDA bằng Jupyter & RStudio
+* Train & đánh giá mô hình ML
+
+**Tech stack:**
+
+* Python 3.x
+* pandas, requests, scikit-learn
+* RStudio (EDA)
+* SQLAlchemy
+
+📌 Đây là **trung tâm xử lý logic** của toàn hệ thống.
+
+---
+
+### **3.2 MinIO Container – Data Lake**
+
+**Vai trò:**
+
+* Lưu trữ dữ liệu **thô (raw data)** đúng tinh thần Data Lake
+* S3-compatible → mô phỏng hệ thống Big Data thực tế
+
+**Cấu trúc dữ liệu:**
+
+```
+minio/
+└── traffic/
+    ├── 2025-01-01_07h.json
+    ├── 2025-01-01_08h.json
+    └── ...
+```
+
+📌 Dữ liệu **chưa qua xử lý**, đảm bảo khả năng trace & audit.
+
+---
+
+### **3.3 Database Container**
+
+**Vai trò:**
+
+* Lưu dữ liệu đã làm sạch & chuẩn hóa
+* Phục vụ SQL Queries & Modeling
+
+**Database đề xuất:**
+
+* PostgreSQL (ưu tiên)
+* Hoặc SQLite (nếu máy yếu)
+
+**Bảng chính:**
+
+* `traffic_cleaned`
+* `traffic_features`
+
+---
+
+## **4. Data Flow (Luồng dữ liệu)**
+
+### **Step-by-step Pipeline**
+
+```
+1. Crawl dữ liệu giao thông
+2. Lưu dữ liệu thô vào MinIO (Raw Zone)
+3. Đọc dữ liệu từ MinIO
+4. Làm sạch & feature engineering
+5. Ghi dữ liệu vào Database
+6. EDA bằng RStudio
+7. Train & evaluate ML model
+```
+
+---
+
+## **5. Docker Compose Responsibility**
+
+File `docker-compose.yml` chịu trách nhiệm:
+
+* Khởi tạo toàn bộ hệ thống bằng **1 lệnh**
+
+```bash
+docker-compose up
+```
+
+Bao gồm:
+
+* Networking giữa các container
+* Volume cho MinIO & Database
+* Environment variables (ẩn bằng `.env`)
+
+---
+
+## **6. Ưu điểm kiến trúc**
+
+✔ Tách biệt rõ từng tầng (Lake – DB – App)
+✔ Dễ scale (thêm data source hoặc model)
+✔ Đúng chuẩn **Enterprise Data Pipeline**
+✔ Phù hợp demo & bảo vệ cuối kỳ
+
+---
+
+## **7. Mapping với yêu cầu môn học**
+
+| Yêu cầu ADY201m           | Đã đáp ứng |
+| ------------------------- | ---------- |
+| Docker Micro-architecture | ✅          |
+| Data Lake (MinIO)         | ✅          |
+| End-to-End Pipeline       | ✅          |
+| ML Validation             | ✅          |
+| GitHub Structure          | ✅          |
+
+---
+
+Nếu bạn muốn **ăn trọn điểm phần Architecture**, mình có thể:
+
+* 🐳 Vẽ **Docker Diagram dạng hình (draw.io / PowerPoint)**
+* 🧾 Viết **mô tả kiến trúc ngắn gọn hơn đúng 1 trang A4**
+* 🧑‍🏫 Chỉnh lại cho đúng **văn phong giảng viên chấm điểm**
+
+Chỉ cần nói:
+👉 *“Vẽ diagram dạng hình cho tôi”* hoặc *“Rút gọn lại cho đúng chuẩn nộp”*
