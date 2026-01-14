@@ -6,8 +6,8 @@
 ## 👥 Thành viên thực hiện
 | STT | Họ và Tên | Mã sinh viên | Vai trò |
 |:---:|:---|:---|:---|
-| 1 | **Lê Ngọc Phú** | [Điền mã SV] | [Ví dụ: Data Engineer, DevOps] |
-| 2 | **Nguyễn Xuân Đỉnh** | [Điền mã SV] | [Ví dụ: Data Analyst, AI Modeler] |
+| 1 | **Lê Ngọc Phú** | [QE200080] | [Ví dụ: Data Engineer, DevOps] |
+| 2 | **Nguyễn Xuân Đỉnh** | [QE200010] | [Ví dụ: Data Analyst, AI Modeler] |
 
 ## 📖 Giới thiệu dự án
 Dự án này được xây dựng nhằm mục đích thu thập, lưu trữ và phân tích dữ liệu giao thông thời gian thực tại **Thành phố Quy Nhơn**. Bằng cách sử dụng dữ liệu từ **TomTom Traffic API**, hệ thống áp dụng quy trình ETL hiện đại và các mô hình Học máy (Machine Learning) để dự đoán mức độ tắc nghẽn giao thông, đặc biệt tập trung vào tác động của hoạt động du lịch và các khung giờ cao điểm.
