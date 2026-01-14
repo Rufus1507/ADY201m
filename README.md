@@ -4,10 +4,10 @@
 > **Dự án Học tập - Môn ADY201m (AI, Data Science with Python & SQL)**
 
 ## 👥 Thành viên thực hiện
-| STT | Họ và Tên | Mã sinh viên | 
+| STT | Họ và Tên | Mã sinh viên |
 |:---:|:---|:---|:---|
-| 1 | **Lê Ngọc Phú** | [QE200080] |
-| 2 | **Nguyễn Xuân Đỉnh** | [QE200101] | 
+| 1 | **Lê Ngọc Phú** | QE200080 |
+| 2 | **Nguyễn Xuân Đỉnh** | QE200101 |
 
 ## 📖 Giới thiệu dự án
 Dự án này được xây dựng nhằm mục đích thu thập, lưu trữ và phân tích dữ liệu giao thông thời gian thực tại **Thành phố Quy Nhơn**. Bằng cách sử dụng dữ liệu từ **TomTom Traffic API**, hệ thống áp dụng quy trình ETL hiện đại và các mô hình Học máy (Machine Learning) để dự đoán mức độ tắc nghẽn giao thông, đặc biệt tập trung vào tác động của hoạt động du lịch và các khung giờ cao điểm.
