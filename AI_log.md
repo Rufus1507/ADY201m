@@ -3862,3 +3862,237 @@ Nếu bạn muốn, mình có thể:
 📄 Soạn bảng timeline dạng bảng (Table) đúng form giáo viên
 
 👉 Bạn muốn tiếp theo làm Report 1 chi tiết hay Docker Diagram vẽ sẵn?
+
+######### ngày 20/01/2026 #########
+hãy hướng dẫn tôi làm report 2 một cách chỉn chu đầy đủ và đảm bảo nội dung nhất 
+Rất tốt 👍
+Report 1 của bạn **đúng hướng, đúng tinh thần ADY201m**, nên bây giờ mình sẽ **hướng dẫn bạn làm Report 2 bám chặt 100% vào nội dung bạn đã viết**, không làm lệch đề, không thừa, không thiếu so với tiêu chí chấm.
+
+Mình sẽ trình bày theo 3 tầng:
+1️⃣ Report 2 cần nộp cái gì
+2️⃣ Cấu trúc Report 2 (viết gì trong PDF)
+3️⃣ Hướng dẫn kỹ thuật cụ thể: làm gì – code gì – chụp hình gì
+
+---
+
+# 🎯 REPORT 2 CỦA BẠN LÀ GÌ? (GẮN VỚI REPORT 1)
+
+**Đề tài của bạn**
+
+> Hệ thống Dự đoán Ùn tắc Giao thông tại TP. Quy Nhơn
+
+👉 Vì vậy **Report 2 KHÔNG phải dự đoán**, mà là:
+
+> **Chứng minh bạn đã thu thập và lưu trữ được dữ liệu giao thông Quy Nhơn một cách tự động**
+
+Theo đúng yêu cầu môn ADY201m:
+
+> Crawl → Data Lake → Database → SQL kiểm tra dữ liệu
+
+---
+
+# 🧱 CẤU TRÚC REPORT 2 (PDF) – BẠN CỨ VIẾT THEO ĐÂY
+
+File:
+📄 `reports/Report_2_DataEngineering.pdf`
+
+## 1️⃣ Introduction – Mục tiêu Report 2 (½ trang)
+
+### Bạn viết như sau (gợi ý):
+
+* Nhắc lại ngắn gọn đề tài:
+
+  * Dự đoán ùn tắc giao thông TP. Quy Nhơn
+* Mục tiêu Report 2:
+
+  * Thu thập dữ liệu traffic realtime từ TomTom API
+  * Lưu trữ dữ liệu lịch sử giao thông
+  * Chuẩn bị dữ liệu cho kiểm định giả thuyết ở Report 3 & 4
+
+📌 **Không nhắc ML, không nhắc LSTM ở đây**
+
+---
+
+## 2️⃣ Data Source & Collection Strategy (TomTom API)
+
+### Nội dung bạn cần trình bày:
+
+### 2.1. Nguồn dữ liệu
+
+* TomTom Traffic API
+* Dữ liệu realtime theo tọa độ GPS
+
+### 2.2. Phạm vi thu thập (rất quan trọng)
+
+Gắn đúng với Report 1 của bạn:
+
+* Geo-fencing TP. Quy Nhơn
+* Các tuyến đường:
+
+  * Xuân Diệu
+  * An Dương Vương
+  * Nguyễn Tất Thành
+  * Tây Sơn
+  * Quốc lộ 1D (Ghềnh Ráng)
+
+### 2.3. Các trường dữ liệu thu thập
+
+Ví dụ:
+
+* `timestamp`
+* `road_name`
+* `current_speed`
+* `free_flow_speed`
+* `travel_time`
+* `confidence`
+
+👉 Phần này **chỉ mô tả**, chưa cần phân tích
+
+---
+
+## 3️⃣ System Architecture for Data Engineering
+
+### 3.1. Kiến trúc cho Report 2 (KHÁC Report 1)
+
+Ở Report 2, **bạn chỉ tập trung vào tầng dữ liệu**, không cần Prediction Engine chi tiết.
+
+### Kiến trúc nên ghi:
+
+* Python Collector (Container)
+* Data Storage (SQLite)
+* (Tuỳ chọn + điểm cộng) MinIO Data Lake
+
+### Mô tả mẫu (bạn có thể dùng gần nguyên văn):
+
+> Python Collector Container định kỳ gọi TomTom Traffic API để thu thập dữ liệu giao thông tại TP. Quy Nhơn. Dữ liệu thô được lưu vào Data Lake (MinIO) dưới dạng JSON, sau đó được xử lý và ghi vào cơ sở dữ liệu SQLite để phục vụ truy vấn và phân tích ở các report tiếp theo.
+
+📌 **Phải có sơ đồ kiến trúc (hình)**
+
+---
+
+## 4️⃣ Data Ingestion – Thu thập dữ liệu (PHẦN CHÍNH)
+
+### 4.1. Quy trình thu thập
+
+Bạn mô tả theo flow:
+
+1. Python gọi TomTom API
+2. Nhận response JSON
+3. Ghi dữ liệu thô (raw)
+4. Lưu vào SQLite
+
+### 4.2. Công nghệ sử dụng
+
+* Python
+* requests
+* pandas
+* sqlite3
+* (schedule / cron)
+
+### 4.3. Minh chứng bắt buộc
+
+Trong report **phải có hình**:
+
+* Log chạy script
+* File SQLite được tạo
+* Một vài record mẫu
+
+⛔ Không có hình = rất dễ bị trừ điểm
+
+---
+
+## 5️⃣ Database Design – Thiết kế SQLite (CỰC QUAN TRỌNG)
+
+### 5.1. Schema database
+
+Ví dụ bảng `traffic_data`:
+
+| Column          | Type     | Ý nghĩa             |
+| --------------- | -------- | ------------------- |
+| id              | INTEGER  | Primary key         |
+| road_name       | TEXT     | Tên tuyến đường     |
+| latitude        | REAL     | Vĩ độ               |
+| longitude       | REAL     | Kinh độ             |
+| current_speed   | REAL     | Tốc độ hiện tại     |
+| free_flow_speed | REAL     | Tốc độ lý tưởng     |
+| travel_time     | REAL     | Thời gian di chuyển |
+| timestamp       | DATETIME | Thời điểm đo        |
+
+👉 Phần này giảng viên **rất thích**, vì thể hiện tư duy Data Engineering
+
+---
+
+## 6️⃣ SQL Queries – Kiểm tra dữ liệu & giả thuyết sơ bộ
+
+### 6.1. Mục tiêu SQL trong Report 2
+
+* Kiểm tra dữ liệu đã về đúng chưa
+* Nhận xét ban đầu (KHÔNG kết luận)
+
+### 6.2. Ví dụ SQL đúng đề tài của bạn
+
+**Query 1 – Mật độ theo ngày**
+
+```sql
+SELECT DATE(timestamp) AS date,
+       AVG(current_speed) AS avg_speed
+FROM traffic_data
+GROUP BY DATE(timestamp);
+```
+
+**Query 2 – So sánh cuối tuần**
+
+```sql
+SELECT strftime('%w', timestamp) AS day_of_week,
+       AVG(current_speed) AS avg_speed
+FROM traffic_data
+GROUP BY day_of_week;
+```
+
+**Query 3 – Giờ cao điểm**
+
+```sql
+SELECT strftime('%H', timestamp) AS hour,
+       AVG(current_speed) AS avg_speed
+FROM traffic_data
+GROUP BY hour
+ORDER BY hour;
+```
+
+### 6.3. Nhận xét (rất ngắn)
+
+Ví dụ:
+
+> Dữ liệu ban đầu cho thấy tốc độ trung bình có xu hướng giảm vào khung giờ buổi tối và cuối tuần, phù hợp với giả thuyết nghiên cứu. Tuy nhiên cần thêm dữ liệu dài hạn để kiểm định chính xác.
+
+---
+
+# ✅ CHECKLIST REPORT 2 (BẠN SO TRƯỚC KHI NỘP)
+
+✔ Có PDF Report 2
+✔ Có sơ đồ kiến trúc
+✔ Có hình dữ liệu thực
+✔ Có schema SQLite
+✔ Có SQL query
+✔ Repo GitHub đúng cấu trúc
+✔ Commit đều (rất quan trọng)
+
+---
+
+# 🚀 BƯỚC TIẾP THEO (MÌNH GIÚP SÂU HƠN)
+
+Nếu bạn muốn, mình có thể:
+
+* 🧩 Viết **outline Report 2 dạng PDF hoàn chỉnh**
+* 🐍 Gợi ý **code Python gọi TomTom API đúng chuẩn**
+* 🗄️ Thiết kế **SQLite schema tối ưu cho traffic**
+* 🐳 Viết **docker-compose cho Report 2**
+* 📝 Viết sẵn **SQL queries đúng gu giảng viên**
+
+👉 Bạn muốn mình hỗ trợ **phần nào trước**:
+1️⃣ Code Python crawl TomTom
+2️⃣ SQLite schema
+3️⃣ Docker Compose
+4️⃣ Template PDF Report 2
+
+Chọn 1 số, mình làm **chi tiết từng dòng** cho bạn 👌
