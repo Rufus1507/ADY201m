@@ -1,0 +1,5 @@
+minio
+psycopg2-binary
+pandas
+requests
+pyodbc
