@@ -1,34 +1,49 @@
 import sqlite3
-import pyodbc
 from datetime import datetime
+import os
 
-# ================= SQLITE (RAW SOURCE) =================
-sqlite_conn = sqlite3.connect("data_traffic_QN.db")
-sqlite_cur = sqlite_conn.cursor()
+# ================= PATH CONFIG =================
+RAW_DB_PATH = "data/raw/data_traffic_QN.db"
+CLEAN_DIR = "data/clean"
+CLEAN_DB_PATH = os.path.join(CLEAN_DIR, "data_traffic_clean.db")
 
-sqlite_cur.execute("""
+os.makedirs(CLEAN_DIR, exist_ok=True)
+
+# ================= SQLITE RAW SOURCE =================
+raw_conn = sqlite3.connect(RAW_DB_PATH)
+raw_cur = raw_conn.cursor()
+
+raw_cur.execute("""
     SELECT
         id,
         timestamp,
         location,
         current_speed_kmh,
         free_flow_speed_kmh,
-        speed_ratio,
-        traffic_level,
         confidence
-    FROM traffic_raw
+    FROM traffic_data
 """)
 
-rows = sqlite_cur.fetchall()
+rows = raw_cur.fetchall()
 
-# ================= SQL SERVER (TARGET DB) =================
-sqlserver_conn = pyodbc.connect(
-    "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=localhost;"
-    "DATABASE=TrafficDB;"
-    "Trusted_Connection=yes;"
-)
-sql_cur = sqlserver_conn.cursor()
+# ================= SQLITE CLEAN TARGET =================
+clean_conn = sqlite3.connect(CLEAN_DB_PATH)
+clean_cur = clean_conn.cursor()
+
+# ----- CREATE CLEAN TABLE (IF NOT EXISTS) -----
+clean_cur.execute("""
+    CREATE TABLE IF NOT EXISTS traffic_data_clean (
+        id INTEGER,
+        timestamp TEXT,
+        location TEXT,
+        current_speed_kmh REAL,
+        free_flow_speed_kmh REAL,
+        speed_ratio REAL,
+        traffic_level TEXT,
+        confidence REAL,
+        PRIMARY KEY (id, timestamp)
+    )
+""")
 
 # ================= CLEAN & INSERT =================
 for row in rows:
@@ -38,16 +53,14 @@ for row in rows:
         location,
         current_speed,
         free_flow_speed,
-        speed_ratio,
-        traffic_level,
         confidence
     ) = row
 
-    # ----- BASIC VALIDATION -----
+    # ----- VALIDATION -----
     if current_speed is None or free_flow_speed in (None, 0):
         continue
 
-    # ----- RE-CALCULATE (CLEAN DATA) -----
+    # ----- DERIVED METRICS -----
     speed_ratio = round(current_speed / free_flow_speed, 2)
 
     if speed_ratio < 0.3:
@@ -59,12 +72,12 @@ for row in rows:
     else:
         traffic_level = "FREE"
 
-    # ----- PARSE TIMESTAMP -----
-    ts = datetime.fromisoformat(ts)
+    # ----- NORMALIZE TIMESTAMP -----
+    ts = datetime.fromisoformat(ts).isoformat()
 
-    # ----- INSERT SQL SERVER -----
-    sql_cur.execute("""
-        INSERT INTO traffic_data (
+    # ----- IDEMPOTENT INSERT (SQLITE) -----
+    clean_cur.execute("""
+        INSERT OR IGNORE INTO traffic_data_clean (
             id,
             timestamp,
             location,
@@ -86,10 +99,11 @@ for row in rows:
         confidence
     ))
 
-sqlserver_conn.commit()
+clean_conn.commit()
 
 # ================= CLOSE CONNECTIONS =================
-sqlite_conn.close()
-sqlserver_conn.close()
+raw_conn.close()
+clean_conn.close()
 
-print("Cleaned data stored into SQL Server successfully")
+print("Cleaned data stored into SQLite (clean zone) successfully")
+print(f"Clean DB location: {CLEAN_DB_PATH}")
