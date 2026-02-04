@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="data_traffic_QN.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="1401"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="sqlite_sequence" custom_title="0" dock_id="1" table="4,15:mainsqlite_sequence"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011300ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">select * from traffic_data
+
+SELECT 
+    location,
+    current_speed_kmh,
+    free_flow_speed_kmh,
+    ROUND(speed_ratio, 2) AS speed_ratio,
+    confidence
+FROM traffic_data
+WHERE confidence &gt; 0.95
+  AND speed_ratio &lt; 0.85
+group by location
+order by speed_ratio desc ;
+ 
+ 
+ 
+SELECT 
+    id,
+    timestamp,
+    location,
+    current_speed_kmh,
+    free_flow_speed_kmh,
+    speed_ratio,
+    traffic_level
+FROM traffic_data
+WHERE traffic_level IN ('DONG', 'KET_XE')
+ORDER BY speed_ratio ASC;
+
+
+
+
+SELECT 
+    location,
+    COUNT(*) AS total_records,
+    ROUND(AVG(speed_ratio), 2) AS avg_speed_ratio,
+    CASE
+        WHEN AVG(speed_ratio) &gt;= 0.8 THEN 'THOANG'
+        WHEN AVG(speed_ratio) &gt;= 0.5 THEN 'DONG'
+        ELSE 'KET_XE'
+    END AS avg_traffic_level
+FROM traffic_data
+GROUP BY location;
+
+
+SELECT 
+    location,
+    COUNT(*) AS total_records,
+    ROUND(AVG(speed_ratio), 2) AS avg_speed_ratio,
+	traffic_level
+FROM traffic_data
+GROUP BY traffic_level,location;
+
+SELECT 
+    location,
+    hour || ':00 - ' || hour || ':59' AS time_slot,
+    congestion_count
+FROM (
+    SELECT
+        location,
+        strftime('%H', timestamp) AS hour,
+        COUNT(*) AS congestion_count,
+        RANK() OVER (
+            PARTITION BY location
+            ORDER BY COUNT(*) DESC
+        ) AS rnk
+    FROM traffic_data
+    WHERE
+        (location LIKE '%BỆNH VIỆN%' OR location LIKE '%BV%')
+        AND speed_ratio &lt;= 0.8
+    GROUP BY location, hour
+)
+WHERE rnk = 1;</sql><current_tab id="0"/></tab_sql></sqlb_project>

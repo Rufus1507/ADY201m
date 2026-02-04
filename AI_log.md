@@ -5209,3 +5209,878 @@ Mình giúp chuẩn hóa tên bảng, tên cột đúng Data Lake (bronze/silver
 Hoặc viết phần mô tả kiến trúc cho Report 2
 
 👉 Chỉ cần nói: “Chuẩn hóa naming theo Bronze–Silver–Gold”
+####################### 01/28/2026 ##########################
+cho tôi vài câu truy vấn SQLite đơn giản về cái dự đoán ùng tắc giao thông có các cột sau id,timestamp,location,current_speed_kmh,free_flow_speed_kmh,speed_ratio,traffic_level,confidence
+1,2026-01-12 20:19:56,NGÃ 5 ĐỐNG ĐA,53.0,53.0,1.0,THOANG,1.0
+2,2026-01-12 20:19:56,HOÀNG VĂN THỤ - TâY SƠN,39.0,49.0,0.8,DONG,0.990786
+cho tôi 3 câu truy bất kì câu truy vấn đó hay một chút
+
+Dưới đây là 3 câu truy vấn SQLite “hay” nhưng vẫn đơn giản, đúng với bảng dữ liệu dự đoán ùn tắc giao thông của bạn.
+Giả sử tên bảng là traffic_prediction.
+
+1️⃣ Truy vấn các điểm đang ùn tắc hoặc đông, sắp xếp theo mức độ nghiêm trọng
+
+👉 Hay ở chỗ: dùng speed_ratio để xếp mức ùn tắc
+
+SELECT 
+    id,
+    timestamp,
+    location,
+    current_speed_kmh,
+    free_flow_speed_kmh,
+    speed_ratio,
+    traffic_level
+FROM traffic_prediction
+WHERE traffic_level IN ('DONG', 'KET_XE')
+ORDER BY speed_ratio ASC;
+
+📌 Ý nghĩa:
+
+speed_ratio càng nhỏ → càng kẹt
+
+Dùng cho dashboard hoặc cảnh báo giao thông
+
+2️⃣ Tìm những điểm có dự đoán đáng tin cậy cao nhưng tốc độ giảm mạnh
+
+👉 Hay ở chỗ: kết hợp confidence + tốc độ
+
+SELECT 
+    location,
+    current_speed_kmh,
+    free_flow_speed_kmh,
+    ROUND(speed_ratio, 2) AS speed_ratio,
+    confidence
+FROM traffic_prediction
+WHERE confidence > 0.95
+  AND speed_ratio < 0.85;
+
+📌 Ý nghĩa:
+
+Chỉ lấy các dự đoán chắc chắn
+
+Phát hiện sớm các điểm sắp ùn tắc
+
+3️⃣ Thống kê mức độ giao thông trung bình theo khu vực
+
+👉 Hay ở chỗ: dùng CASE WHEN để mã hoá mức độ giao thông
+
+SELECT 
+    location,
+    COUNT(*) AS total_records,
+    ROUND(AVG(speed_ratio), 2) AS avg_speed_ratio,
+    CASE
+        WHEN AVG(speed_ratio) >= 0.9 THEN 'THOANG'
+        WHEN AVG(speed_ratio) >= 0.7 THEN 'DONG'
+        ELSE 'KET_XE'
+    END AS avg_traffic_level
+FROM traffic_prediction
+GROUP BY location;
+
+📌 Ý nghĩa:
+
+Đánh giá tình trạng giao thông tổng quát theo từng điểm
+
+Rất phù hợp cho báo cáo tuần / tháng
+
+Nếu bạn muốn, tôi có thể:
+
+🔥 Viết truy vấn cảnh báo real-time
+
+📊 Truy vấn phục vụ biểu đồ (chart)
+
+🤖 Truy vấn dùng cho API Flask / FastAPI
+
+🧠 Truy vấn hỗ trợ AI training / label traffic_level
+
+Bạn muốn theo hướng nào?
+################ 4/2/2026 ##################
+
+You said:
+from minio import Minio
+from datetime import datetime
+import os
+
+# ================= CONNECT MINIO (S3 API) =================
+client = Minio(
+    "localhost:9000",          # ✅ đúng port
+    access_key="admin",
+    secret_key="admin123",
+    secure=False
+)
+
+# ================= CONFIG =================
+BUCKET_NAME = "raw-traffic-data"
+OBJECT_PREFIX = "traffic/sqlite"
+
+# ================= CREATE BUCKET =================
+if not client.bucket_exists(BUCKET_NAME):
+    client.make_bucket(BUCKET_NAME)
+
+# ================= FILE PATH (RAW DATA) =================
+file_path = "data/raw/data_traffic_QN.db"
+
+if not os.path.exists(file_path):
+    raise FileNotFoundError(f"{file_path} not found")
+
+# ================= OBJECT NAME (DATE PARTITION) =================
+now = datetime.utcnow()
+
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"year={now.year}/"
+    f"month={now.month:02d}/"
+    f"day={now.day:02d}/"
+    f"data_traffic_QN_{now.strftime('%H%M%S')}.db"
+)
+
+# ================= UPLOAD =================
+client.fput_object(
+    bucket_name=BUCKET_NAME,
+    object_name=object_name,
+    file_path=file_path,
+    content_type="application/octet-stream"
+)
+
+print("✅ Raw SQLite database uploaded to MinIO")
+print(f"📦 Bucket: {BUCKET_NAME}")
+print(f"📁 Object: {object_name}")
+
+đọc code này của tôi và cho tôi biết có phụ hợp với trường hợp upload lên bucket chỉ những phần mới chưa upload không hay nó chỉ upload lên toàn bộ 
+ChatGPT said:
+Mình đọc kỹ code của bạn rồi và trả lời thẳng vào câu hỏi nhé.
+
+Kết luận ngắn gọn
+👉 Code hiện tại KHÔNG phù hợp cho trường hợp
+
+“chỉ upload những phần mới chưa upload”
+
+👉 Nó LUÔN upload TOÀN BỘ file SQLite (.db) mỗi lần chạy, dù dữ liệu bên trong có mới hay không.
+
+Phân tích chi tiết từng điểm (rõ ràng, không suy đoán)
+1. Đối tượng upload của bạn là gì?
+file_path = "data/raw/data_traffic_QN.db"
+➡️ Đây là một file SQLite hoàn chỉnh
+➡️ SQLite là file nhị phân, không có khái niệm “append từng dòng” khi upload S3/MinIO
+
+2. MinIO (S3) hoạt động như thế nào?
+MinIO/S3:
+
+Không biết nội dung bên trong file SQLite
+
+Chỉ biết:
+
+“Có một file → upload nguyên file”
+
+👉 MinIO không thể tự so sánh record mới/cũ trong SQLite
+
+3. Object name của bạn luôn là object MỚI
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"year={now.year}/"
+    f"month={now.month:02d}/"
+    f"day={now.day:02d}/"
+    f"data_traffic_QN_{now.strftime('%H%M%S')}.db"
+)
+Ví dụ:
+
+data_traffic_QN_091530.db
+data_traffic_QN_091545.db
+➡️ Mỗi lần chạy:
+
+Tên object khác nhau
+
+MinIO không overwrite
+
+Không kiểm tra đã upload hay chưa
+
+👉 Kết quả:
+Upload lại toàn bộ file SQLite với tên mới
+
+4. fput_object() làm gì?
+client.fput_object(
+    bucket_name=BUCKET_NAME,
+    object_name=object_name,
+    file_path=file_path,
+    content_type="application/octet-stream"
+)
+fput_object =
+
+Upload nguyên file từ disk lên MinIO
+
+❌ Không có:
+
+Diff dữ liệu
+
+Incremental upload
+
+Kiểm tra “phần mới”
+
+Trả lời đúng câu hỏi của bạn
+Câu hỏi	Trả lời
+Code này có upload chỉ phần mới không?	❌ Không
+Nó có kiểm tra đã upload chưa?	❌ Không
+Nó upload cái gì?	✅ Toàn bộ file SQLite
+Mỗi lần chạy có tạo object mới không?	✅ Có
+Nếu bạn MUỐN “chỉ upload phần mới” thì PHẢI đổi kiến trúc
+Mình tóm tắt 3 hướng chuẩn, từ dễ → đúng → chuyên nghiệp:
+
+🔹 Hướng 1 (Dễ nhất – thường dùng)
+Upload snapshot theo thời gian
+
+Mỗi X phút / X giờ:
+
+Upload toàn bộ file
+
+Nhưng coi đó là snapshot
+
+Dùng partition theo thời gian (bạn đang làm đúng)
+
+✔ Dễ triển khai
+❌ Tốn dung lượng
+❌ Không phải incremental thật sự
+
+👉 Code hiện tại PHÙ HỢP hướng này
+
+🔹 Hướng 2 (Chuẩn data engineering – khuyên dùng)
+Chỉ xuất RECORD MỚI → upload file nhỏ
+
+Ví dụ:
+
+Query SQLite:
+
+SELECT * FROM traffic_data
+WHERE timestamp > last_uploaded_timestamp;
+Ghi ra:
+
+CSV / Parquet / JSON
+
+Upload file đó lên MinIO
+
+📦 Object:
+
+traffic/year=2026/month=02/day=04/traffic_0900.parquet
+✔ Chỉ upload dữ liệu mới
+✔ Nhẹ
+✔ Dễ xử lý Spark / Trino / DuckDB
+
+🔹 Hướng 3 (Incremental thật sự – phức tạp)
+Theo dõi:
+
+WAL của SQLite
+
+Hoặc CDC (Change Data Capture)
+
+Gần giống database replication
+
+⚠️ Phức tạp
+⚠️ Không khuyến nghị với SQLite
+
+Gợi ý cụ thể cho hệ thống camera / traffic của bạn
+Dựa trên các cuộc nói chuyện trước của bạn (IoT, traffic, SQLite, MinIO):
+
+👉 Best practice:
+
+SQLite = local buffer
+
+MinIO = data lake
+
+👉 Nên:
+
+SQLite chỉ lưu tạm
+
+Mỗi 1–5 phút:
+
+Query record mới
+
+Ghi ra Parquet
+
+Upload lên MinIO
+
+Đánh dấu last_uploaded_time
+
+Nếu bạn muốn, mình có thể:
+
+Viết code incremental export từ SQLite
+
+Thiết kế schema data lake
+
+Hoặc chỉnh lại code của bạn theo hướng 2
+
+Chỉ cần nói:
+👉 “Viết lại code theo hướng chỉ upload dữ liệu mới”
+
+You said:
+tôi muốn cho nó đọc toàn bộ data và chỉ upload những đoạn nó chưa có trên minIO thì có được không
+ChatGPT said:
+Câu hỏi của bạn rất đúng trọng tâm 👍
+Mình trả lời thẳng + chi tiết kỹ thuật, không né tránh.
+
+❓ “Đọc toàn bộ data và chỉ upload những đoạn MinIO chưa có” — CÓ ĐƯỢC KHÔNG?
+👉 Trả lời ngắn gọn
+VỀ LÝ THUYẾT: CÓ THỂ
+VỀ THỰC TẾ (với SQLite + MinIO): KHÔNG KHẢ THI & KHÔNG NÊN
+
+Và không phải do MinIO yếu, mà do bản chất của SQLite + object storage.
+
+1️⃣ Vì sao ý tưởng này nghe có vẻ hợp lý?
+Bạn đang nghĩ theo logic:
+
+“MinIO đã có dữ liệu A rồi → chỉ upload dữ liệu B mới”
+
+Nghe giống:
+
+Git diff
+
+Rsync
+
+Incremental backup
+
+👉 Nhưng MinIO (S3) KHÔNG làm việc theo kiểu đó
+
+2️⃣ Vấn đề cốt lõi: MinIO KHÔNG BIẾT “đoạn dữ liệu” là gì
+MinIO chỉ biết:
+Object = 1 file nhị phân
+
+Metadata = tên, size, etag (hash)
+
+MinIO KHÔNG biết:
+Bảng SQLite
+
+Row
+
+Timestamp
+
+Primary key
+
+📌 Với MinIO:
+
+data_traffic_QN.db = 1 cục byte
+Không có khái niệm:
+
+record 1024 → đã upload
+record 1025 → chưa upload
+3️⃣ Vấn đề thứ 2: SQLite thay đổi TOÀN FILE
+Giả sử bạn thêm 1 dòng mới vào SQLite:
+
+INSERT INTO traffic_data VALUES (...);
+Thực tế:
+
+SQLite:
+
+Update page
+
+Update index
+
+Update freelist
+
+Update header
+
+→ hash toàn file thay đổi
+
+👉 Không tồn tại khái niệm:
+
+“chỉ có 1 đoạn byte mới”
+
+4️⃣ “Vậy đọc SQLite rồi so với MinIO thì sao?”
+Ta thử phân tích mọi cách có thể:
+
+❌ Cách 1: So MD5 / ETag
+etag = client.stat_object(...)
+❌ Fail:
+
+Chỉ biết file giống hay khác
+
+Không biết khác chỗ nào
+
+❌ Cách 2: Download object cũ → diff
+Download DB từ MinIO
+
+So với DB local
+
+❌ Fail:
+
+SQLite không đảm bảo layout ổn định
+
+Diff byte ≠ diff dữ liệu
+
+Rất chậm + rủi ro corrupt
+
+❌ Cách 3: So từng row SQLite với MinIO
+➡️ MinIO không có row
+➡️ Bạn phải:
+
+Download data về
+
+Parse lại
+
+So sánh record
+
+👉 Lúc này MinIO không còn là data lake nữa, mà là DB phụ
+
+5️⃣ KẾT LUẬN KỸ THUẬT (RẤT QUAN TRỌNG)
+❗ Không tồn tại cách “đọc toàn bộ SQLite rồi chỉ upload phần MinIO chưa có” một cách chuẩn, an toàn và hiệu quả
+
+Nếu ai nói có → họ đang:
+
+Hiểu sai object storage
+
+Hoặc làm hack rất nguy hiểm
+
+6️⃣ CÁCH ĐÚNG — vẫn đúng với ý tưởng của bạn
+Ý tưởng của bạn KHÔNG SAI, chỉ là phải đổi level xử lý
+
+🔥 Cách chuẩn: “Incremental theo DATA, không theo FILE”
+Bước 1: SQLite vẫn là nguồn
+SELECT *
+FROM traffic_data
+WHERE timestamp > last_uploaded_ts;
+Bước 2: Ghi ra file mới (CSV / Parquet)
+Ví dụ:
+
+traffic/year=2026/month=02/day=04/traffic_0900.parquet
+Bước 3: Upload file đó
+MinIO lúc này:
+
+KHÔNG trùng
+
+KHÔNG thiếu
+
+KHÔNG cần so sánh
+
+Bước 4: Lưu checkpoint
+Ví dụ:
+
+{
+  "last_uploaded_ts": "2026-02-04T08:59:59Z"
+}
+7️⃣ Nếu bạn CỐ GIỮ SQLite làm object?
+⚠️ Chỉ có 1 cách duy nhất chấp nhận được:
+
+Snapshot theo thời gian
+Upload toàn bộ DB
+
+Mỗi object = 1 snapshot
+
+👉 Không incremental
+👉 Nhưng an toàn
+
+8️⃣ Lời khuyên đúng cho hệ camera / traffic của bạn
+Dựa trên:
+
+IoT
+
+Camera
+
+Traffic data
+
+SQLite local
+
+MinIO data lake
+
+👉 Architecture đúng:
+
+Camera
+   ↓
+SQLite (buffer, local)
+   ↓ (incremental export)
+Parquet / CSV
+   ↓
+MinIO (data lake)
+   ↓
+Spark / Trino / DuckDB
+9️⃣ Nếu bạn muốn, mình có thể làm ngay cho bạn
+✔ Viết code:
+
+Đọc SQLite
+
+Detect record mới
+
+Xuất Parquet
+
+Upload MinIO
+
+Lưu checkpoint
+
+✔ Hoặc:
+
+Giữ SQLite nhưng snapshot thông minh
+
+Thiết kế schema lakehouse
+
+Chỉ cần nói 1 câu:
+
+“Viết code incremental upload theo timestamp cho SQLite + MinIO”
+
+Mình sẽ làm đúng chuẩn data engineering, không hack 👍
+
+You said:
+cho tôi cách bạn đã đề xuất đó
+ChatGPT said:
+Tốt 👍
+Mình sẽ đưa CÁCH ĐÚNG – ĐÃ ĐƯỢC DÙNG TRONG DATA ENGINEERING, đúng với đề xuất trước, có code hoàn chỉnh, bạn chỉ cần chỉnh path là chạy được.
+
+🎯 MỤC TIÊU
+Đọc TOÀN BỘ SQLite
+
+CHỈ xuất & upload NHỮNG RECORD CHƯA CÓ
+
+KHÔNG upload lại dữ liệu cũ
+
+KHÔNG hack MinIO
+
+AN TOÀN – MỞ RỘNG ĐƯỢC
+
+🧠 NGUYÊN LÝ (CỐT LÕI – PHẢI NẮM)
+❌ KHÔNG incremental theo file SQLite
+✅ Incremental theo DATA (row)
+
+👉 Ta cần 1 cột tăng dần:
+
+timestamp
+
+hoặc id
+
+hoặc created_at
+
+Ví dụ mình dùng: timestamp (ISO hoặc unix)
+
+🧱 KIẾN TRÚC
+SQLite (local buffer)
+   ↓ SELECT record mới
+File CSV / Parquet (nhỏ)
+   ↓
+MinIO (data lake)
+   ↓
+Checkpoint (lưu mốc đã upload)
+📁 CẤU TRÚC FILE
+project/
+├── data/raw/data_traffic_QN.db
+├── checkpoint/
+│   └── traffic_checkpoint.json
+├── export/
+│   └── traffic_20260204_090000.parquet
+└── upload_incremental.py
+1️⃣ CHECKPOINT – LƯU MỐC ĐÃ UPLOAD
+📄 checkpoint/traffic_checkpoint.json
+
+{
+  "last_uploaded_ts": "1970-01-01T00:00:00"
+}
+Chỉ update sau khi upload THÀNH CÔNG
+
+2️⃣ CODE HOÀN CHỈNH (INCREMENTAL EXPORT + UPLOAD)
+import sqlite3
+import json
+import os
+from datetime import datetime
+import pandas as pd
+from minio import Minio
+
+# ================= CONFIG =================
+SQLITE_DB = "data/raw/data_traffic_QN.db"
+CHECKPOINT_FILE = "checkpoint/traffic_checkpoint.json"
+EXPORT_DIR = "export"
+
+BUCKET_NAME = "raw-traffic-data"
+OBJECT_PREFIX = "traffic/incremental"
+
+# ================= MINIO =================
+client = Minio(
+    "localhost:9000",
+    access_key="admin",
+    secret_key="admin123",
+    secure=False
+)
+
+# ================= LOAD CHECKPOINT =================
+if os.path.exists(CHECKPOINT_FILE):
+    with open(CHECKPOINT_FILE, "r") as f:
+        checkpoint = json.load(f)
+        last_uploaded_ts = checkpoint["last_uploaded_ts"]
+else:
+    last_uploaded_ts = "1970-01-01T00:00:00"
+
+print("📌 Last uploaded timestamp:", last_uploaded_ts)
+
+# ================= READ SQLITE =================
+conn = sqlite3.connect(SQLITE_DB)
+
+query = """
+SELECT *
+FROM traffic_data
+WHERE timestamp > ?
+ORDER BY timestamp
+"""
+
+df = pd.read_sql_query(query, conn, params=(last_uploaded_ts,))
+conn.close()
+
+if df.empty:
+    print("✅ No new data to upload")
+    exit(0)
+
+# ================= EXPORT FILE =================
+os.makedirs(EXPORT_DIR, exist_ok=True)
+
+now = datetime.utcnow()
+file_name = f"traffic_{now.strftime('%Y%m%d_%H%M%S')}.parquet"
+file_path = os.path.join(EXPORT_DIR, file_name)
+
+df.to_parquet(file_path, index=False)
+
+# ================= UPLOAD MINIO =================
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"year={now.year}/"
+    f"month={now.month:02d}/"
+    f"day={now.day:02d}/"
+    f"{file_name}"
+)
+
+if not client.bucket_exists(BUCKET_NAME):
+    client.make_bucket(BUCKET_NAME)
+
+client.fput_object(
+    bucket_name=BUCKET_NAME,
+    object_name=object_name,
+    file_path=file_path,
+    content_type="application/octet-stream"
+)
+
+# ================= UPDATE CHECKPOINT =================
+new_last_ts = df["timestamp"].max()
+
+os.makedirs(os.path.dirname(CHECKPOINT_FILE), exist_ok=True)
+with open(CHECKPOINT_FILE, "w") as f:
+    json.dump(
+        {"last_uploaded_ts": new_last_ts},
+        f,
+        indent=2
+    )
+
+print("✅ Incremental upload successful")
+print("📦 Object:", object_name)
+print("🕒 New checkpoint:", new_last_ts)
+3️⃣ TẠI SAO CÁCH NÀY ĐÚNG?
+Tiêu chí	Đáp án
+Upload trùng dữ liệu?	❌ Không
+Upload thiếu dữ liệu?	❌ Không
+Phụ thuộc MinIO diff?	❌ Không
+An toàn khi restart?	✅ Có
+Mở rộng Spark / Trino?	✅ Có
+Dùng chuẩn data lake?	✅ Có
+4️⃣ NẾU BẠN KHÔNG CÓ timestamp THÌ SAO?
+👉 Dùng:
+
+id INTEGER PRIMARY KEY AUTOINCREMENT
+
+hoặc (camera_id, frame_id)
+
+hoặc (camera_id, event_time)
+
+Logic KHÔNG ĐỔI, chỉ đổi WHERE.
+
+5️⃣ CẢNH BÁO QUAN TRỌNG ⚠️
+❌ KHÔNG update checkpoint trước khi upload thành công
+❌ KHÔNG dùng SQLite WAL để incremental
+❌ KHÔNG so SQLite với MinIO
+
+6️⃣ NÂNG CẤP (KHI CẦN)
+Ghi Parquet partition theo camera
+
+Nén snappy
+
+Gộp file nhỏ (compaction)
+
+Dùng DuckDB đọc trực tiếp MinIO
+
+👉 Nếu bạn muốn:
+Viết version dùng CSV
+
+Thêm dedup theo primary key
+
+Hoặc thiết kế schema traffic chuẩn data lake
+
+Chỉ cần nói tiếp, mình sẽ làm đúng chuẩn – không cắt bước – không giấu logic 👍
+
+You said:
+import sqlite3
+import json
+import os
+from datetime import datetime
+import pandas as pd
+from minio import Minio
+
+# ================= CONFIG =================
+SQLITE_DB = "data/raw/data_traffic_QN.db"
+CHECKPOINT_FILE = "checkpoint/traffic_checkpoint.json"
+EXPORT_DIR = "export"
+
+BUCKET_NAME = "raw-traffic-data"
+OBJECT_PREFIX = "traffic/incremental"
+
+# ================= MINIO =================
+client = Minio(
+    "localhost:9000",
+    access_key="admin",
+    secret_key="admin123",
+    secure=False
+)
+
+# ================= LOAD CHECKPOINT =================
+if os.path.exists(CHECKPOINT_FILE):
+    with open(CHECKPOINT_FILE, "r") as f:
+        checkpoint = json.load(f)
+        last_uploaded_ts = checkpoint["last_uploaded_ts"]
+else:
+    last_uploaded_ts = "1970-01-01T00:00:00"
+
+print("📌 Last uploaded timestamp:", last_uploaded_ts)
+
+# ================= READ SQLITE =================
+conn = sqlite3.connect(SQLITE_DB)
+
+query = """
+SELECT *
+FROM traffic_data
+WHERE timestamp > ?
+ORDER BY timestamp
+"""
+
+df = pd.read_sql_query(query, conn, params=(last_uploaded_ts,))
+conn.close()
+
+if df.empty:
+    print("✅ No new data to upload")
+    exit(0)
+
+# ================= EXPORT FILE =================
+os.makedirs(EXPORT_DIR, exist_ok=True)
+
+now = datetime.utcnow()
+file_name = f"traffic_{now.strftime('%Y%m%d_%H%M%S')}.parquet"
+file_path = os.path.join(EXPORT_DIR, file_name)
+
+df.to_parquet(file_path, index=False)
+
+# ================= UPLOAD MINIO =================
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"year={now.year}/"
+    f"month={now.month:02d}/"
+    f"day={now.day:02d}/"
+    f"{file_name}"
+)
+
+if not client.bucket_exists(BUCKET_NAME):
+    client.make_bucket(BUCKET_NAME)
+
+client.fput_object(
+    bucket_name=BUCKET_NAME,
+    object_name=object_name,
+    file_path=file_path,
+    content_type="application/octet-stream"
+)
+
+# ================= UPDATE CHECKPOINT =================
+new_last_ts = df["timestamp"].max()
+
+os.makedirs(os.path.dirname(CHECKPOINT_FILE), exist_ok=True)
+with open(CHECKPOINT_FILE, "w") as f:
+    json.dump(
+        {"last_uploaded_ts": new_last_ts},
+        f,
+        indent=2
+    )
+
+print("✅ Incremental upload successful")
+print("📦 Object:", object_name)
+print("🕒 New checkpoint:", new_last_ts)
+sửa lại cho tôi đoạn lưu vào folder nhìn nó đẹp hơn cụ thể là gọp ngày tháng năm lại 
+ChatGPT said:
+OK, yêu cầu này rõ ràng và hợp lý 👍
+Ta chỉ cần chỉnh lại cấu trúc folder cho gọn và “đẹp” hơn, KHÔNG đụng logic incremental.
+
+🎯 MỤC TIÊU MỚI
+Thay vì:
+
+traffic/incremental/
+  year=2026/
+    month=02/
+      day=04/
+        traffic_20260204_090000.parquet
+👉 Bạn muốn gộp năm–tháng–ngày lại, ví dụ:
+
+✅ Cách phổ biến & đẹp (khuyên dùng)
+traffic/incremental/
+  date=2026-02-04/
+    traffic_20260204_090000.parquet
+Hoặc nếu muốn ngắn gọn hơn:
+
+traffic/incremental/
+  2026-02-04/
+    traffic_20260204_090000.parquet
+✏️ SỬA CODE – CHỈ 1 ĐOẠN DUY NHẤT
+🔧 ĐOẠN CŨ
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"year={now.year}/"
+    f"month={now.month:02d}/"
+    f"day={now.day:02d}/"
+    f"{file_name}"
+)
+✅ ĐOẠN MỚI (GỘP NĂM–THÁNG–NGÀY)
+👉 Option 1 (chuẩn data lake, dễ query)
+date_partition = now.strftime("%Y-%m-%d")
+
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"date={date_partition}/"
+    f"{file_name}"
+)
+📦 Kết quả trên MinIO:
+
+traffic/incremental/date=2026-02-04/traffic_20260204_090000.parquet
+👉 Option 2 (cực gọn, nhìn như log)
+date_partition = now.strftime("%Y-%m-%d")
+
+object_name = (
+    f"{OBJECT_PREFIX}/"
+    f"{date_partition}/"
+    f"{file_name}"
+)
+📦 Kết quả:
+
+traffic/incremental/2026-02-04/traffic_20260204_090000.parquet
+🧠 NÊN CHỌN OPTION NÀO?
+Mục đích	Nên dùng
+Query bằng Spark / Trino	date=YYYY-MM-DD
+Chỉ lưu trữ / xem tay	YYYY-MM-DD/
+Chuẩn data lake	✅ date=YYYY-MM-DD
+👉 Mình khuyên dùng Option 1
+
+✅ TOÀN BỘ LOGIC KHÁC GIỮ NGUYÊN
+Incremental theo timestamp ✅
+
+Checkpoint an toàn ✅
+
+Không upload trùng ✅
+
+Không phụ thuộc MinIO diff ✅
+
+🚀 NÂNG CẤP NHẸ (GỢI Ý)
+Nếu sau này bạn muốn mỗi file = 5 phút / 10 phút:
+
+time_bucket = now.strftime("%Y-%m-%d/%H-%M")
+📦 Ví dụ:
+
+traffic/incremental/date=2026-02-04/09-00/traffic_090000.parquet
+Nếu bạn muốn mình:
+
+Chuẩn hóa luôn schema parquet
+
+Thêm camera_id partition
+
+Hay thêm dedup theo primary key
+
+👉 cứ nói tiếp, mình chỉnh cho đúng chuẩn production 👌
